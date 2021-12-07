@@ -1,5 +1,14 @@
 .App {
   text-align: center;
+  background-color: #e5ffe8;
+}
+
+.main-nav {
+  border: 2px solid gray;
+  padding: 2em;
+  margin-left: 20%;
+  margin-right: 20%;
+  text-align: center;
 }
 
 .App-logo {
