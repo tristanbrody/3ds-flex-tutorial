@@ -1,18 +1,21 @@
 const express = require("express");
+const bodyParser = require("body-parser");
 const router = new express.Router();
 const app = express();
 const xmlParser = require("express-xml-bodyparser");
+const xml = require("xml");
 const jwt = require("jsonwebtoken");
 const { v4: uuid } = require("uuid");
 const cors = require("cors");
 const axios = require("axios");
 const qs = require("qs");
 require("dotenv").config();
+const cookieParser = require("cookie-parser");
 
 const JWT_OPTIONS = {};
-
-app.use(xmlParser());
-app.use(express.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(cookieParser());
 
 app.use(
   cors({
@@ -32,7 +35,6 @@ router.post("/token", (req, res) => {
   const iss = "61654c80424ec551b72be555";
   const OrgUnitId = "61654c80424ec551b72be554";
   const MAC = "55dd3cbe-23a6-456a-84dc-71cdfe5ff0b8";
-
   const payload = {
     jti,
     iat,
@@ -45,27 +47,31 @@ router.post("/token", (req, res) => {
   return res.json({ token });
 });
 
-router.get("/token2", (req, res) => {
+router.post("/token2", (req, res) => {
   const jti = uuid();
   const iat = Math.floor(new Date().getTime() / 1000);
-  const exp = Math.floor(new Date().addHours(1) / 1000);
-  const iss = process.env.ISS;
-  const OrgUnitId = process.env.ORG_UNIT_ID;
-  const ReturnUrl = "http://localhost:3000";
-  const MAC = process.env.MAC;
+  // const iss = process.env.ISS;
+  //   const OrgUnitId = process.env.ORG_UNIT_ID;
+  const ReturnUrl = "http://localhost:3001/after-challenge";
+  const ReferenceId = req.body.ReferenceId;
+  console.log(req.body);
+
+  // const MAC = process.env.MAC;
+  const iss = "61654c80424ec551b72be555";
+  const OrgUnitId = "61654c80424ec551b72be554";
+  const MAC = "55dd3cbe-23a6-456a-84dc-71cdfe5ff0b8";
   const Payload = {
-    Payload:
-      "eyJtZXNzYWdlVHlwZSI6IkNSZXEiLCJtZXNzYWdlVmVyc2lvbiI6IjIuMS4wIiwidGhyZWVEU1NlcnZlclRyYW5zSUQiOiI4ZjBmYjNmZi02YzMzLTQwZTYtYTRhZS1kOTg0MjQzYmRhMTQiLCJhY3NUcmFuc0lEIjoiNTkxZjJhZDYtOTRiZC00ZWUzLTg0YjYtZDBmZjc1MTY2N2FjIiwiY2hhbGxlbmdlV2luZG93U2l6ZSI6IjAyIn0",
+    Payload: req.body.Payload,
     ACSUrl:
       "https://0merchantacsstag.cardinalcommerce.com/MerchantACSWeb/creq.jsp",
-    TransactionId: "1t06VCMj8LSOYgDxkpz0",
+    TransactionId: req.body.TransactionId,
   };
 
   const payload = {
     jti,
     iat,
     iss,
-    exp,
+    ReferenceId,
     OrgUnitId,
     ReturnUrl,
     Payload,
@@ -80,11 +86,10 @@ router.get("/", (req, res) => {
 });
 
 router.post("/auth-request", async (req, res) => {
-  debugger;
   const config = {
     headers: { "Content-Type": "text/xml", Charset: "UTF-8" },
   };
-  return axios
+  const authRes = await axios
     .post(
       "https://secure-test.worldpay.com/jsp/merchant/xml/paymentService.jsp",
       req.body.request,
@@ -95,9 +100,36 @@ router.post("/auth-request", async (req, res) => {
         },
       }
     )
-    .then(res => {
-      console.log(res.data);
-    });
+    .then(d => d);
+  res.send({ res: authRes.data, cookie: authRes.headers["set-cookie"][0] });
+});
+
+router.post("/after-challenge", async (req, res) => {
+  res.send({ response: req.body });
+});
+
+router.post("/second-auth-request", async (req, res) => {
+  console.log(req.body.request.cookie);
+  const config = {
+    headers: { "Content-Type": "text/xml", Charset: "UTF-8" },
+  };
+  console.log(`req.body is ${req.body.request.xml}`);
+  const secondAuthRes = await axios
+    .post(
+      "https://secure-test.worldpay.com/jsp/merchant/xml/paymentService.jsp",
+      req.body.request.xml,
+      {
+        auth: {
+          username: process.env.USERNAME,
+          password: process.env.PASSWORD,
+        },
+        withCredentials: true,
+        headers: {
+          Cookie: req.body.request.cookie,
+        },
+      }
+    )
+    .then(d => console.log(d.data));
 });
 
 app.use(router);
