@@ -18,7 +18,7 @@ function App() {
   return (
     <AppContext.Provider value={{ APP_STORE, UPDATE_APP_STORE }}>
       <div style={{ display: "flex", height: "100vh" }} className="App">
-        <div class="outputContainer"></div>
+        <div class="outputContainer" style={{ display: "flex" }}></div>
         <BrowserRouter>
           <Routes>
             <Route exact path="/" element={<Home />} />

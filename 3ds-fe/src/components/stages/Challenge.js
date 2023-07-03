@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-
+import StageToggle from "../../UI/StageToggle";
 import { AppContext } from "../../App";
 const axios = require("axios");
 
@@ -10,6 +10,7 @@ const Challenge = () => {
   const challengeHeader = useRef(null);
   const challengeForm = useRef(null);
   const challengeFrame = useRef(null);
+  const [challengeCompleted, toggleChallengeCompleted] = useState(false);
   useEffect(() => {
     const getSecondChallengeJWT = async () => {
       const challengeJWT = await fetch("http://localhost:3001/token2", {
@@ -42,23 +43,18 @@ const Challenge = () => {
         challengeFrame.current.style.height = "800px";
         challengeFrame.current.style.display = "initial";
         challengeHeader.current.innerHTML =
-          "Simultated response challenge from Cardinal below...";
+          "Simulated response challenge from Cardinal below...";
       }, 5000);
     }
-    document.querySelector("iframe").addEventListener("load", e => {
-      console.dir(challengeFrame.current);
-      window.postMessage(JSON.stringify(window.location), "*");
-    });
   }, [APP_STORE.challengeJWT]);
 
   window.addEventListener(
     "message",
     async function (event) {
-      //This is a Cardinal Commerce URL in live.
       const data = event.data;
-      console.log(event);
-      if (data !== undefined) {
-        console.log(`data is ${console.dir(data)}`);
+      if (data === "Challenge completed") {
+        console.log(`Challenge completed`);
+        toggleChallengeCompleted(true);
       }
     },
     false
@@ -88,6 +84,11 @@ const Challenge = () => {
           <button>submit</button>
         </form>
       </iframe>
+      <StageToggle
+        prevLink="#"
+        forwardLink="/second-auth-request"
+        forwardDisabled={!challengeCompleted}
+      />
     </div>
   );
 };

@@ -1,14 +1,18 @@
-import { useEffect, useContext, useRef } from "react";
+import { useEffect, useContext, useRef, useState } from "react";
 import { AppContext } from "../../App";
 import { useNavigate } from "react-router-dom";
+import StageToggle from "../../UI/StageToggle";
 
 import classes from "./InitialAuthRequest.module.css";
+const util = require("util");
 
 const axios = require("axios");
 const parseXML = require("xml2js").parseString;
 
 const InitialAuthRequest = () => {
+  const [forwardDisabled, setForwardDisabled] = useState(false);
   const initialAuthContainer = useRef(null);
+  const [dataLogged, setDataLogged] = useState(false);
 
   const navigate = useNavigate();
 
@@ -28,6 +32,9 @@ const InitialAuthRequest = () => {
     initialAuthContainer.current.innerHTML =
       "Submitting initial auth request...";
     const submitInitialAuth = async () => {
+      console.log(
+        `sending card number in initial auth of ${APP_STORE.scenario.cardNumber}`
+      );
       const randString1 = generateRandomString(8);
       const randString2 = generateRandomString(8);
       const authRequest = `<?xml version='1.0' encoding='UTF-8'?>
@@ -41,11 +48,11 @@ const InitialAuthRequest = () => {
       </orderContent>
       <paymentDetails>
         <CARD-SSL>
-          <cardNumber>4000000000001091</cardNumber>
+          <cardNumber>4000000000001109</cardNumber>
           <expiryDate>
             <date month='01' year='2024'/>
           </expiryDate>
-          <cardHolderName>AUTHORISED</cardHolderName>
+          <cardHolderName>MILTON</cardHolderName>
           <cvc>123</cvc>
           <cardAddress>
             <address>
@@ -69,9 +76,7 @@ const InitialAuthRequest = () => {
       </shopper>
       <!-- Additional 3DS data that you must provide to us -->
       <additional3DSData
-        dfReferenceId='${APP_STORE.SessionId}'
-        challengeWindowSize='390x400'
-        challengePreference='challengeMandated'/>
+        dfReferenceId='${APP_STORE.SessionId}'/>
     </order>
   </submit>
 </paymentService>`;
@@ -81,47 +86,73 @@ const InitialAuthRequest = () => {
         headers: { "Content-Type": "text/xml", Charset: "UTF-8" },
         request: authRequest,
       };
-      const authRes = await axios.post(
-        "http://localhost:3001/auth-request",
-        config
-      );
+      let authRes;
+      try {
+        authRes = await axios.post(
+          "http://localhost:3001/auth-request",
+          config
+        );
+      } catch {
+        console.log("ERROR WITH TRANSACTION");
+      }
       let data = authRes.data.res.toString().replace("\ufeff", "");
 
       parseXML(data, (err, res) => {
         if (err) throw err;
-        const transactionId3DS =
-          res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
-            .threeDSChallengeDetails[0].transactionId3DS[0];
-        const acsURL =
-          res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
-            .threeDSChallengeDetails[0].acsURL[0];
-        const payload =
-          res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
-            .threeDSChallengeDetails[0].payload[0];
+        if (APP_STORE.scenario.scenario !== "successful-frictionless") {
+          initialAuthContainer.current.innerText = `Response from Worldpay to initial auth is ${data}`;
+          try {
+            const initialAuthReply = res.paymentService.reply[0];
+            const transactionId3DS =
+              res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
+                .threeDSChallengeDetails[0].transactionId3DS[0];
+            const acsURL =
+              res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
+                .threeDSChallengeDetails[0].acsURL[0];
+            const payload =
+              res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
+                .threeDSChallengeDetails[0].payload[0];
 
-        UPDATE_APP_STORE(prev => {
-          return {
-            ...prev,
-            transactionId3DS,
-            acsURL,
-            payload,
-            cookie: authRes.data.cookie,
-            OrderCode: `testorder-${randString1}`,
-            OrderSessionId: randString2,
-          };
-        });
+            UPDATE_APP_STORE(prev => {
+              return {
+                ...prev,
+                transactionId3DS,
+                acsURL,
+                payload,
+                cookie: authRes.data.cookie,
+                OrderCode: `testorder-${randString1}`,
+                OrderSessionId: randString2,
+                initialAuthReply: JSON.stringify(initialAuthReply),
+              };
+            });
+          } catch {
+            //
+          }
+        } else {
+          initialAuthContainer.current.innerText = `Response from Worldpay to initial auth is ${data}`;
+          setForwardDisabled(true);
+        }
       });
 
-      initialAuthContainer.current.innerHTML = `Response from Worldpay to initial auth request: \n ${authRes.data.res}`;
-
-      setTimeout(() => navigate("/challenge"), 5000);
+      // setTimeout(() => navigate("/challenge"), 5000);
       return null;
     };
     submitInitialAuth();
   }, []);
+
+  useEffect(() => {
+    if (!dataLogged && APP_STORE.transactionId3DS !== undefined) {
+      setDataLogged(true);
+    }
+  }, [APP_STORE.transactionId3DS]);
   return (
     <div className={classes.initialAuthContainer}>
       <p ref={initialAuthContainer}></p>
+      <StageToggle
+        prevLink="#"
+        forwardLink="/challenge"
+        forwardDisabled={forwardDisabled}
+      />
     </div>
   );
 };

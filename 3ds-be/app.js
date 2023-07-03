@@ -17,11 +17,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-  })
-);
+app.use(cors());
 
 Date.prototype.addHours = function (h) {
   this.setHours(this.getHours() + h);
@@ -29,19 +25,22 @@ Date.prototype.addHours = function (h) {
 };
 
 router.post("/token", (req, res) => {
+  console.log("running");
   const jti = uuid();
   const iat = Math.floor(new Date().getTime() / 1000);
   const exp = Math.floor(new Date().addHours(1) / 1000);
   const iss = "61654c80424ec551b72be555";
   const OrgUnitId = "61654c80424ec551b72be554";
   const MAC = "55dd3cbe-23a6-456a-84dc-71cdfe5ff0b8";
+  const ReturnUrl = "http://localhost:3001/after-challenge";
   const payload = {
     jti,
     iat,
     iss,
-    exp,
     OrgUnitId,
+    ReturnUrl,
   };
+  console.log("still running");
 
   const token = jwt.sign(payload, MAC, JWT_OPTIONS);
   return res.json({ token });
@@ -101,11 +100,21 @@ router.post("/auth-request", async (req, res) => {
       }
     )
     .then(d => d);
+  console.dir(authRes);
+
   res.send({ res: authRes.data, cookie: authRes.headers["set-cookie"][0] });
 });
 
 router.post("/after-challenge", async (req, res) => {
-  res.send({ response: req.body });
+  // res.send({ response: req.body });
+  // can return HTML with a script to call out to iFrame's parent on page load using messsage API
+  console.dir(req.body);
+  res.set("Content-Type", "text/html");
+  res.send(
+    Buffer.from(
+      "<h2>Received response from Cardinal indicating completion of challenge</h2><script>window.parent.postMessage('Challenge completed', '*');</script>"
+    )
+  );
 });
 
 router.post("/second-auth-request", async (req, res) => {
@@ -129,7 +138,9 @@ router.post("/second-auth-request", async (req, res) => {
         },
       }
     )
-    .then(d => console.log(d.data));
+    .then(d => d);
+  console.log(secondAuthRes.data);
+  res.send({ res: secondAuthRes.data });
 });
 
 app.use(router);

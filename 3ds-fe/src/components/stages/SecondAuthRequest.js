@@ -1,12 +1,13 @@
 import { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-
+import classes from "./SecondAuthRequest.module.css";
 import { AppContext } from "../../App";
-import styles from "./InitialAuthRequest.module.css";
+import StageToggle from "../../UI/StageToggle";
 const parseXML = require("xml2js").parseString;
 const axios = require("axios");
 
 const SecondAuthRequest = () => {
+  const secondAuthRequestContainer = useRef(null);
   const navigate = useNavigate();
 
   const { APP_STORE, UPDATE_APP_STORE } = useContext(AppContext);
@@ -38,9 +39,13 @@ const SecondAuthRequest = () => {
 
       parseXML(data, (err, res) => {
         if (err) throw err;
-        // const transactionId3DS =
-        //   res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
-        //     .threeDSChallengeDetails[0].transactionId3DS[0];
+        secondAuthRequestContainer.current.innerText = `
+        XML sent to Worldpay: ${secondAuthRequestXml}
+        XML received from Worldpay: ${data}
+        `;
+        console.dir(res.paymentService.reply[0]);
+        const status =
+          res.paymentService.reply[0].orderStatus[0].payment[0].lastEvent[0];
         // const acsURL =
         //   res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
         //     .threeDSChallengeDetails[0].acsURL[0];
@@ -48,22 +53,31 @@ const SecondAuthRequest = () => {
         //   res.paymentService.reply[0].orderStatus[0].challengeRequired[0]
         //     .threeDSChallengeDetails[0].payload[0];
 
-        // UPDATE_APP_STORE(prev => {
-        //   return {
-        //     ...prev,
-        //     transactionId3DS,
-        //     acsURL,
-        //     payload,
-        //     cookie: authRes.data.cookie,
-        //     OrderCode: randString1,
-        //     OrderSessionId: randString2,
-        //   };
-        // });
+        UPDATE_APP_STORE(prev => {
+          return {
+            ...prev,
+            status,
+          };
+        });
       });
     };
     postSecondAuthRequest();
   }, []);
-  return <div>Second auth request</div>;
+
+  useEffect(() => {
+    let statusText = APP_STORE.status !== undefined ? APP_STORE.status : "...";
+  }, [APP_STORE.status]);
+  return (
+    <>
+      <div
+        class={classes.secondAuthRequestContainer}
+        ref={secondAuthRequestContainer}
+      >
+        Second auth request
+      </div>
+      <StageToggle forwardDisabled={true} prevDisabled={true} />
+    </>
+  );
 };
 
 export default SecondAuthRequest;

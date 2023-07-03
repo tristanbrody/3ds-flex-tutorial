@@ -2,10 +2,12 @@ import { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AppContext } from "../../App";
+import StageToggle from "../../UI/StageToggle";
 const axios = require("axios");
 
 const DDC_Stage = () => {
   const DDC_iFrame = useRef(null);
+  const DDCOutcomeP = useRef(null);
   const navigate = useNavigate();
 
   const { APP_STORE, UPDATE_APP_STORE } = useContext(AppContext);
@@ -37,16 +39,6 @@ const DDC_Stage = () => {
     return result;
   }
 
-  // async function handleSubmit(e) {
-  //   e.preventDefault();
-  //   const JWT = e.target[1].value;
-  //   const Bin = e.target[0].value;
-  //   fetch("https://centinelapistag.cardinalcommerce.com/V1/Cruise/Collect", {
-  //     method: "POST",
-  //     body: JSON.stringify({ Bin, JWT }),
-  //   }).then(res => console.log(res));
-  // }
-
   useEffect(() => {
     const getToken = async () => {
       await getJWT();
@@ -58,13 +50,36 @@ const DDC_Stage = () => {
     DDC_iFrame.current.submit();
     console.log("DDCOutcome is", DDCOutcomeLogged);
     if (DDCOutcomeLogged) {
+      DDCOutcomeP.current.innerText = `
+      POSTED TO CARDINAL:
+      <div>
+      <iframe
+        id="myiframe"
+        name="myiframe"
+        height="1"
+        width="1"
+        style={{ display: "none" }}
+        title="sometitle"
+      >
+        <form
+          id="collectionForm"
+          ref={DDC_iFrame}
+          method="POST"
+          action="https://centinelapistag.cardinalcommerce.com/V1/Cruise/Collect"
+          target="myiframe"
+        >
+          <input type="hidden" name="Bin" value="4000000000001000" />
+          <input type="hidden" name="JWT" value={JWT} />
+        </form>
+      </iframe>
+      RESPONSE FROM Cardinal. Session ID is ${DDCData.SessionId}`;
       UPDATE_APP_STORE(prev => {
         return {
           ...prev,
           SessionId: DDCData.SessionId,
         };
       });
-      navigate("/initial-auth-request");
+      // navigate("/initial-auth-request");
       return null;
     }
   }, [JWT, DDCOutcomeLogged]);
@@ -85,7 +100,10 @@ const DDC_Stage = () => {
   );
 
   return (
-    <div>
+    <>
+      <p id="DDC-outcome" ref={DDCOutcomeP} style={{ width: "100%" }}>
+        Submitting device data collection...
+      </p>
       <iframe
         id="myiframe"
         name="myiframe"
@@ -101,16 +119,15 @@ const DDC_Stage = () => {
           action="https://centinelapistag.cardinalcommerce.com/V1/Cruise/Collect"
           target="myiframe"
         >
-          <input type="hidden" name="Bin" value="4000000000001000" />
+          <input type="hidden" name="Bin" value="4444333322221111" />
           <input type="hidden" name="JWT" value={JWT} />
         </form>
       </iframe>
-
-      <h5 id="DDC-outcome">Submitting device data collection...</h5>
+      <StageToggle prevLink="#" forwardLink="/initial-auth-request" />
       <div height="300" width="300">
         <br></br>
       </div>
-    </div>
+    </>
   );
 };
 
